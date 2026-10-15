@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickets y Tareas</title>
+<style>
+:root{
+  --rojo:#a32a29; --dorado:#b8860b; --fondo:#f7f5f2; --tarjeta:#ffffff;
+  --texto:#2b2b2b; --suave:#6b6b6b; --borde:#e2ddd5; --ok:#2e7d4f;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--fondo);color:var(--texto);font-family:"Segoe UI",Arial,sans-serif;line-height:1.45;}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;margin:0;}
+header{background:var(--rojo);color:#fff;border-bottom:5px solid var(--dorado);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+header h1{font-size:24px;}
+#sesion{display:none;align-items:center;gap:12px;font-size:14px;}
+button{font:inherit;cursor:pointer;border:none;border-radius:6px;padding:9px 16px;background:var(--rojo);color:#fff;}
+button:hover{background:#862120;}
+button.sec{background:transparent;color:var(--rojo);border:1px solid var(--rojo);}
+button.sec:hover{background:#f6e7e7;}
+header button.sec{color:#fff;border-color:#fff;}
+header button.sec:hover{background:rgba(255,255,255,.15);}
+button.peligro{background:transparent;color:#a32a29;border:1px solid var(--borde);}
+input,textarea,select{font:inherit;width:100%;padding:9px 10px;border:1px solid var(--borde);border-radius:6px;background:#fff;color:var(--texto);}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--dorado);outline-offset:1px;}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px;}
+.tarjeta{background:var(--tarjeta);border:1px solid var(--borde);border-top:4px solid var(--dorado);border-radius:6px;padding:20px;}
+.error{color:#a32a29;font-size:14px;min-height:20px;margin-top:10px;}
+main{max-width:1000px;margin:24px auto;padding:0 16px;}
+
+/* Acceso */
+#acceso{max-width:400px;margin:40px auto;}
+.pestanas{display:flex;gap:8px;margin-bottom:8px;}
+.pestanas button{flex:1;background:transparent;color:var(--suave);border:1px solid var(--borde);}
+.pestanas button.activa{background:var(--rojo);color:#fff;border-color:var(--rojo);}
+#acceso form button[type=submit]{width:100%;margin-top:16px;}
+
+/* App */
+#app{display:none;grid-template-columns:340px 1fr;gap:20px;align-items:start;}
+#lista h2,#detalle h2{font-size:20px;color:var(--rojo);}
+#nuevo{margin-bottom:16px;}
+#nuevo button{margin-top:12px;width:100%;}
+.ticket{display:block;width:100%;text-align:left;background:#fff;color:var(--texto);border:1px solid var(--borde);border-radius:6px;padding:12px;margin-top:8px;}
+.ticket:hover{background:#faf6ee;}
+.ticket.activo{border-color:var(--rojo);box-shadow:inset 4px 0 0 var(--rojo);}
+.ticket b{display:block;margin-bottom:4px;overflow-wrap:anywhere;}
+.meta{display:flex;justify-content:space-between;font-size:13px;color:var(--suave);}
+.estado{font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid currentColor;}
+.estado.abierto{color:#8a5a00;} .estado.en_progreso{color:#1d5fa8;} .estado.cerrado{color:var(--ok);}
+.vacio{color:var(--suave);font-size:14px;padding:12px 0;}
+.fila-estado{display:flex;gap:10px;align-items:center;margin:14px 0;}
+.fila-estado select{width:auto;}
+.desc{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--suave);}
+#tareas{list-style:none;padding:0;margin:12px 0;}
+#tareas li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--borde);}
+#tareas input[type=checkbox]{width:20px;height:20px;flex-shrink:0;}
+#tareas li.hecha span{text-decoration:line-through;color:var(--suave);}
+#tareas span{overflow-wrap:anywhere;}
+#form-tarea{display:flex;gap:8px;}
+#form-tarea button{flex-shrink:0;}
+.encabezado-detalle{display:flex;justify-content:space-between;gap:12px;align-items:start;}
+@media (max-width:760px){#app{grid-template-columns:1fr;} header h1{font-size:19px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Tickets y Tareas</h1>
+  <div id="sesion"><span id="quien"></span><button class="sec" id="btn-salir">Cerrar sesión</button></div>
+</header>
+
+<main>
+  <!-- Login y registro -->
+  <section id="acceso" class="tarjeta">
+    <div class="pestanas">
+      <button type="button" id="tab-login" class="activa">Iniciar sesión</button>
+      <button type="button" id="tab-registro">Crear cuenta</button>
+    </div>
+    <form id="form-acceso">
+      <div id="campo-nombre" style="display:none">
+        <label for="a-nombre">Nombre</label>
+        <input id="a-nombre" maxlength="50" autocomplete="name">
+      </div>
+      <label for="a-email">Correo</label>
+      <input id="a-email" type="email" required maxlength="100" autocomplete="email">
+      <label for="a-pass">Contraseña</label>
+      <input id="a-pass" type="password" required minlength="6" autocomplete="current-password">
+      <div class="error" id="acceso-error" role="alert"></div>
+      <button type="submit" id="acceso-btn">Entrar</button>
+    </form>
+  </section>
+
+  <!-- Aplicación -->
+  <section id="app">
+    <div id="lista">
+      <div id="nuevo" class="tarjeta">
+        <h2>Nuevo ticket</h2>
+        <form id="form-ticket">
+          <label for="t-titulo">Título</label>
+          <input id="t-titulo" required maxlength="100">
+          <label for="t-desc">Descripción</label>
+          <textarea id="t-desc" rows="3" maxlength="1000"></textarea>
+          <button type="submit">Crear ticket</button>
+        </form>
+        <div class="error" id="lista-error" role="alert"></div>
+      </div>
+      <h2>Mis tickets</h2>
+      <div id="tickets"></div>
+    </div>
+
+    <div id="detalle" class="tarjeta">
+      <div class="vacio">Elige un ticket de la lista o crea uno nuevo.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "";   // misma URL desde la que se sirve la página (local, Azure, Render)
+const ESTADOS = {abierto:"Abierto", en_progreso:"En progreso", cerrado:"Cerrado"};
+
+let token = localStorage.getItem("token");
+let user = JSON.parse(localStorage.getItem("user") || "null");
+let tickets = [];
+let selId = null;
+
+const $ = (id) => document.getElementById(id);
+
+async function api(ruta, metodo = "GET", cuerpo){
+    const headers = {"Content-Type":"application/json"};
+    if(token) headers.Authorization = "Bearer " + token;
+    const res = await fetch(API + ruta, {method:metodo, headers, body: cuerpo ? JSON.stringify(cuerpo) : undefined});
+    if(res.status === 401 && token){
+        cerrarSesion();
+        throw new Error("Tu sesión venció. Inicia sesión de nuevo.");
+    }
+    if(res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(data.error || "Error " + res.status);
+    return data;
+}
+
+function crear(tag, props = {}, texto){
+    const e = document.createElement(tag);
+    Object.assign(e, props);
+    if(texto !== undefined) e.textContent = texto;   // textContent evita inyección de HTML (XSS)
+    return e;
+}
+
+/* ---------- Acceso ---------- */
+let modoRegistro = false;
+function setModo(registro){
+    modoRegistro = registro;
+    $("tab-login").classList.toggle("activa", !registro);
+    $("tab-registro").classList.toggle("activa", registro);
+    $("campo-nombre").style.display = registro ? "block" : "none";
+    $("a-nombre").required = registro;
+    $("a-pass").autocomplete = registro ? "new-password" : "current-password";
+    $("acceso-btn").textContent = registro ? "Crear cuenta" : "Entrar";
+    $("acceso-error").textContent = "";
+}
+$("tab-login").onclick = () => setModo(false);
+$("tab-registro").onclick = () => setModo(true);
+
+$("form-acceso").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("acceso-error").textContent = "";
+    const email = $("a-email").value.trim();
+    const password = $("a-pass").value;
+    try{
+        if(modoRegistro){
+            await api("/auth/register", "POST", {nombre:$("a-nombre").value, email, password});
+        }
+        const r = await api("/auth/login", "POST", {email, password});
+        token = r.token; user = r.user;
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        $("form-acceso").reset();
+        await mostrarApp();
+    }catch(err){
+        $("acceso-error").textContent = err.message;
+    }
+});
+
+function cerrarSesion(){
+    token = null; user = null; tickets = []; selId = null;
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    $("app").style.display = "none";
+    $("sesion").style.display = "none";
+    $("acceso").style.display = "block";
+    setModo(false);
+}
+$("btn-salir").onclick = cerrarSesion;
+
+/* ---------- Tickets ---------- */
+async function mostrarApp(){
+    $("acceso").style.display = "none";
+    $("app").style.display = "grid";
+    $("sesion").style.display = "flex";
+    $("quien").textContent = user ? user.nombre : "";
+    await cargarTickets();
+    renderDetalle();
+}
+
+async function cargarTickets(){
+    try{
+        tickets = await api("/tickets");
+        renderLista();
+    }catch(err){
+        $("lista-error").textContent = err.message;
+    }
+}
+
+function renderLista(){
+    const cont = $("tickets");
+    cont.replaceChildren();
+    if(tickets.length === 0){
+        cont.appendChild(crear("div", {className:"vacio"}, "Todavía no tienes tickets. Crea el primero con el formulario."));
+        return;
+    }
+    tickets.forEach(t => {
+        const b = crear("button", {className:"ticket" + (t.id === selId ? " activo" : ""), type:"button"});
+        b.appendChild(crear("b", {}, t.titulo));
+        const meta = crear("div", {className:"meta"});
+        meta.appendChild(crear("span", {className:"estado " + t.estado}, ESTADOS[t.estado]));
+        meta.appendChild(crear("span", {}, t.tareas_completadas + "/" + t.total_tareas + " tareas"));
+        b.appendChild(meta);
+        b.onclick = () => { selId = t.id; renderLista(); renderDetalle(); };
+        cont.appendChild(b);
+    });
+}
+
+$("form-ticket").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("lista-error").textContent = "";
+    try{
+        const t = await api("/tickets", "POST", {titulo:$("t-titulo").value, descripcion:$("t-desc").value});
+        $("form-ticket").reset();
+        selId = t.id;
+        await cargarTickets();
+        renderDetalle();
+    }catch(err){
+        $("lista-error").textContent = err.message;
+    }
+});
+
+/* ---------- Detalle y tareas ---------- */
+async function renderDetalle(){
+    const cont = $("detalle");
+    const t = tickets.find(x => x.id === selId);
+    cont.replaceChildren();
+    if(!t){
+        cont.appendChild(crear("div", {className:"vacio"}, "Elige un ticket de la lista o crea uno nuevo."));
+        return;
+    }
+
+    const cab = crear("div", {className:"encabezado-detalle"});
+    cab.appendChild(crear("h2", {}, t.titulo));
+    const del = crear("button", {className:"peligro", type:"button"}, "Eliminar ticket");
+    del.onclick = async () => {
+        if(!confirm("¿Eliminar este ticket y todas sus tareas?")) return;
+        try{
+            await api("/tickets/" + t.id, "DELETE");
+            selId = null;
+            await cargarTickets();
+            renderDetalle();
+        }catch(err){ alert(err.message); }
+    };
+    cab.appendChild(del);
+    cont.appendChild(cab);
+
+    if(t.descripcion) cont.appendChild(crear("p", {className:"desc"}, t.descripcion));
+
+    const fila = crear("div", {className:"fila-estado"});
+    fila.appendChild(crear("label", {htmlFor:"sel-estado", style:"margin:0"}, "Estado"));
+    const sel = crear("select", {id:"sel-estado"});
+    Object.entries(ESTADOS).forEach(([v, n]) => {
+        const o = crear("option", {value:v}, n);
+        if(v === t.estado) o.selected = true;
+        sel.appendChild(o);
+    });
+    sel.onchange = async () => {
+        try{
+            await api("/tickets/" + t.id, "PATCH", {estado: sel.value});
+            await cargarTickets();
+        }catch(err){ alert(err.message); sel.value = t.estado; }
+    };
+    fila.appendChild(sel);
+    cont.appendChild(fila);
+
+    cont.appendChild(crear("h3", {}, "Tareas"));
+    const ul = crear("ul", {id:"tareas"});
+    cont.appendChild(ul);
+
+    const form = crear("form", {id:"form-tarea"});
+    const inp = crear("input", {placeholder:"Nueva tarea", maxLength:100, required:true, ariaLabel:"Título de la tarea"});
+    form.appendChild(inp);
+    form.appendChild(crear("button", {type:"submit"}, "Agregar tarea"));
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        try{
+            await api("/tickets/" + t.id + "/tareas", "POST", {titulo: inp.value});
+            inp.value = "";
+            await cargarTickets();
+            pintarTareas(t.id, ul);
+        }catch(err){ alert(err.message); }
+    };
+    cont.appendChild(form);
+
+    pintarTareas(t.id, ul);
+}
+
+async function pintarTareas(ticketId, ul){
+    try{
+        const tareas = await api("/tickets/" + ticketId + "/tareas");
+        if(ticketId !== selId) return;   // el usuario cambió de ticket mientras cargaba
+        ul.replaceChildren();
+        if(tareas.length === 0){
+            ul.appendChild(crear("li", {className:"vacio"}, "Este ticket no tiene tareas. Agrega la primera abajo."));
+            return;
+        }
+        tareas.forEach(ta => {
+            const li = crear("li", {className: ta.completada ? "hecha" : ""});
+            const chk = crear("input", {type:"checkbox", checked: !!ta.completada, ariaLabel:"Completada"});
+            chk.onchange = async () => {
+                try{
+                    await api("/tareas/" + ta.id, "PATCH", {completada: chk.checked});
+                    await cargarTickets();
+                    pintarTareas(ticketId, ul);
+                }catch(err){ alert(err.message); chk.checked = !chk.checked; }
+            };
+            li.appendChild(chk);
+            li.appendChild(crear("span", {}, ta.titulo));
+            ul.appendChild(li);
+        });
+    }catch(err){
+        ul.replaceChildren(crear("li", {className:"error"}, err.message));
+    }
+}
+
+/* ---------- Inicio ---------- */
+if(token && user) mostrarApp(); else setModo(false);
+</script>
+</body>
+</html>
